@@ -13,8 +13,7 @@ import requests
 import threading
 from Queue import Queue
 import requests.packages.urllib3
-
-import requests.packages.urllib3
+from urlparse import urlparse
 
 # SSL error ignored
 if hasattr(ssl, '_create_unverified_context'):
@@ -74,6 +73,8 @@ class Awvs(object):
             targets = req.get("targets_count","error")
             print "Total : %s ,Runing : %s ,Waiting : %s" % (targets,running,waiting)
             return running
+        else:
+            print "login fail,please check the api-key...."
 
 
     def add_task(self,url=None,mode=1):
@@ -109,36 +110,25 @@ class Awvs(object):
             print "="*50+"\n[ WARING ]%s records in %s"% (len(par_err),self.path)+'parse.err\n'+"="*50
 
 
-    def get_ok(self,url_):
-        global con_err
-        url=url_.strip()
-        try:
-            req= requests.get(url,headers=self.header,timeout=3)
-            if req.ok:
-                urls.append(url)
-            else:
-                con_err.append(url_)
-        except:
-            req= requests.get(url,headers=self.header,timeout=3)
-            if not req.ok:
-                con_err.append(url_)
+
+    def parse_url(self,url):
+        _ = urlparse(url, 'http')
+        if not _.netloc:
+            return 'http://' + url
+
 
 
     def get_urls(self,file):
         global urls
         global par_err
-        threads = []
         with open(self.path+file,'r') as f:
             for i in f.readlines():
-                if "://" in i:
-                    t = threading.Thread(target=self.get_ok, args=(i,))
-                    threads.append(t)
+                link=self.parse_url(i)
+                if "://" in link:
+                    urls.append(link)
                 else:
+                    print "You must parse url like 'http://example.com'"
                     par_err.append(i)
-        for x in threads:
-            x.start()
-        for x in threads:
-            x.join()
         return urls
 
 
@@ -166,8 +156,8 @@ class Awvs(object):
         ok,req=self.request(self.targets,_method="GET")
         try:
             for info in req.get("targets"):
-                if desc=="*":
-                    print self.targets+"/"+info["target_id"]
+                if desc=="all":
+                    # print self.targets+"/"+info["target_id"]
                     req=requests.delete(self.targets+"/"+info["target_id"],headers=self.header,verify=False)
                     if req.ok:
                         print "success del target %s"% info["address"]
@@ -210,7 +200,7 @@ class Awvs(object):
 def cmdLineParser():
     parser = argparse.ArgumentParser(usage='python %s -f "week32" -m 2'%__file__)
     parser.add_argument('-f','--file',metavar="",help='Urls filename')
-    parser.add_argument('-d','--delete',metavar="",default=None,help='Task description,input * to delete all')
+    parser.add_argument('-d','--delete',metavar="",default=None,help='"-d all" Delete all')
     parser.add_argument('-u','--url',metavar="",type=str,help='Like "http://www.hn12122.com"')
     parser.add_argument('-t','--timeout',metavar="",type=int,help='Stop timeout seconds tasks ')
     parser.add_argument('-m','--mode',metavar="",default=1,type=int,
@@ -231,8 +221,8 @@ def cmdLineParser():
 
 
 if __name__ == '__main__':
-    aws = "https://192.168.176.146:3443/"
-    key = "1986ad8c0a5b3df4d7028d5f3c06e936c51a26a29fac146609dc12deeed9a5f50"
+    aws = "https://192.168.55.144:3443/"
+    key = "1986ad8c0a5b3df4d7028d5f3c06e936cf472814bd5a2479485f28e11e0811afa"
     aws=Awvs(url=aws,apikey=key)
     args=cmdLineParser()
     if args.file:
