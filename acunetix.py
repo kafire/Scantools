@@ -94,7 +94,7 @@ class Awvs(object):
                     print "[ INFO ] Success add target: %s"%  url.strip('\n')
             self.is_err()
         except BaseException as e:
-            print "[ ERROR ] Add task error:\n%s"% e
+            print "[ ERROR ] Add task url error:\n%s"% e
 
 
     def is_err(self):
@@ -115,13 +115,15 @@ class Awvs(object):
         _ = urlparse(url, 'http')
         if not _.netloc:
             return 'http://' + url
+        else:
+            return url
 
 
 
     def get_urls(self,file):
         global urls
         global par_err
-        with open(self.path+file,'r') as f:
+        with open(self.path+file,'rb') as f:
             for i in f.readlines():
                 link=self.parse_url(i)
                 if "://" in link:
@@ -132,11 +134,11 @@ class Awvs(object):
         return urls
 
 
-    def add_tasks(self,file,mode=2):
+    def add_tasks(self,_file,mode=1):
         try:
-            for i in self.get_urls(file):
-                url=i.strip('\n')
-                data_= {"address":url,"description":file,"criticality":"10"}
+            for i in self.get_urls(_file):
+                url=i.strip()
+                data_= {"address":url,"description":_file,"criticality":"10"}
                 ok_,req_= self.request(_url=self.targets,data=data_)
                 if ok_:
                     id = req_.get('target_id','')
@@ -149,7 +151,7 @@ class Awvs(object):
                     print "[ ERROR ] Fail to contected awvs,license expiration "
             self.is_err()
         except BaseException as e:
-            print "[ ERROR ] Add task error:\n%s"% e
+            print "[ ERROR ] Add tasks file error:\n%s"% e
 
 
     def delete_scan(self,desc):
@@ -225,8 +227,9 @@ if __name__ == '__main__':
     key = "1986ad8c0a5b3df4d7028d5f3c06e936cf472814bd5a2479485f28e11e0811afa"
     aws=Awvs(url=aws,apikey=key)
     args=cmdLineParser()
+    # print args.file,args.mode,args.url,args.delete,args.timeout
     if args.file:
-        aws.add_tasks(file=args.file,mode=args.mode)
+        aws.add_tasks(_file=args.file,mode=args.mode)
     if args.url:
         aws.add_task(url=args.url,mode=args.mode)
     if args.delete:
