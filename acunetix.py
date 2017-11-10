@@ -10,7 +10,6 @@ import urllib3
 import argparse
 import datetime
 import requests
-import threading
 from Queue import Queue
 import requests.packages.urllib3
 from urlparse import urlparse
@@ -85,13 +84,13 @@ class Awvs(object):
             else:
                 par_err.append(url)
             ok_,req_= self.request(_url=self.targets,data=data_)
-            if ok_:
-                id = req_.get('target_id','')
-                data = {"target_id":id,"profile_id":"11111111-1111-1111-1111-11111111111%s"% mode,
-                         "schedule": {"disable": False,"start_date":None,"time_sensitive": False}}
-                ok,req= self.request(_url=self.scans,data=data)
-                if ok:
-                    print "[ INFO ] Success add target: %s"%  url.strip('\n')
+            # if ok_:
+            id = req_.get('target_id','')
+            data = {"target_id":id,"profile_id":"11111111-1111-1111-1111-11111111111%s"% mode,
+                     "schedule": {"disable": False,"start_date":None,"time_sensitive": False}}
+            ok,req= self.request(_url=self.scans,data=data)
+            if ok:
+                print "[ INFO ] Success add target: %s"%  url.strip('\n')
             self.is_err()
         except BaseException as e:
             print "[ ERROR ] Add task url error:\n%s"% e
@@ -154,21 +153,26 @@ class Awvs(object):
             print "[ ERROR ] Add tasks file error:\n%s"% e
 
 
+
     def delete_scan(self,desc):
-        ok,req=self.request(self.targets,_method="GET")
-        try:
-            for info in req.get("targets"):
-                if desc=="all":
-                    # print self.targets+"/"+info["target_id"]
-                    req=requests.delete(self.targets+"/"+info["target_id"],headers=self.header,verify=False)
-                    if req.ok:
-                        print "success del target %s"% info["address"]
-                elif info["description"]== desc:
-                    req=requests.delete(self.targets+"/"+info["target_id"],headers=self.header,verify=False)
-                    if req.ok:
-                        print "success del target %s"% info["address"]
-        except BaseException as e:
-            print "[ ERROR ] Delte task error:\n%s"% e
+        while True:
+            ok,req=self.request(self.targets,_method="GET")
+            info_task = req.get("targets")
+            if not info_task:break
+            try:
+                for info in req.get("targets"):
+                    if desc=="all":
+                        # print self.targets+"/"+info["target_id"]
+                        req=requests.delete(self.targets+"/"+info["target_id"],headers=self.header,verify=False)
+                        if req.ok:
+                            print "success del target %s"% info["address"]
+                    elif info["description"]== desc:
+                        req=requests.delete(self.targets+"/"+info["target_id"],headers=self.header,verify=False)
+                        if req.ok:
+                            print "success del target %s"% info["address"]
+            except BaseException as e:
+                print "[ ERROR ] Delte task error:\n%s"% e
+
 
 
     def is_timeout(self,utc_time = None,timeout=None):
