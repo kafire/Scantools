@@ -16,7 +16,7 @@
   - 支持自定义每个任务的扫描时间，避免单个任务耗时太久，默认单位是秒,-t 1000 
   - 支持批量删除任务，-d all 会删除当前所有任务，-d url.txt 会删除利用url.txt文件添加的所有任务
  
- - 基本用法
+ - 基本用法 <br>
 python acunetix.py -u http://www.xx.com -m 1 <br>
 python acunetix.py -f urls.txt -m 2 <br>
 python acunetix.py -f urls.txt -m 1 -t 1000 <br>
