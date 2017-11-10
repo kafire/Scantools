@@ -4,10 +4,9 @@
 - acunetix.py适用于一次性添加或删除大量AWVS扫描任务的情况，只支持avws11.
 
 - 修改配置 <br>
-首先修改脚本中的 <br>
+首先修改脚本中的地址和api <br>
     aws = "https://192.168.55.144:3443/" #这里修改为awvs地址 <br>
     key = "1986ad8c0a5b3df4d7028d5f3c06e936cf472814bd5a2479485f28e11e0811afa" #修改为你的扫描器api-key <br>
-    
   api-key需要手动生成，方法是登录awvs，右上角administrator --> profile  往下拉到底有API的选项复制出来 <br>
   
 - 主要功能 <br>
