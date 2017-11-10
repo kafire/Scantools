@@ -1,6 +1,6 @@
 # scantools
 
-#### acunetix.py
+#### 0x1 acunetix.py
 - acunetix.py适用于一次性添加或删除大量AWVS扫描任务的情况，只支持avws11
 
 - 修改配置
@@ -18,8 +18,8 @@
   - 支持批量删除任务，-d all 会删除当前所有任务，-d url.txt 会删除利用url.txt文件添加的所有任务
  
  - 基本用法
-> python acunetix.py -u http://www.xx.com -m 1 <br>
-> python acunetix.py -f urls.txt -m 2 <br>
-> python acunetix.py -f urls.txt -m 1 -t 1000 <br>
-> python acunetix.py -d all <br>
-> python acunetix.py -d urls.txt <br>
+python acunetix.py -u http://www.xx.com -m 1 <br>
+python acunetix.py -f urls.txt -m 2 <br>
+python acunetix.py -f urls.txt -m 1 -t 1000 <br>
+python acunetix.py -d all <br>
+python acunetix.py -d urls.txt <br>
