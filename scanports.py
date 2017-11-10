@@ -1,11 +1,9 @@
 #coding: utf-8
 
-
 import re
 import os
 import csv
 import sys
-import IPy
 import nmap
 import time
 import socket
@@ -28,7 +26,7 @@ except:
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
-socket.setdefaulttimeout(10)
+socket.setdefaulttimeout(3)
 
 
 DEFAULT_PORTS= '21,22,23,25,53,67,68,69,80,81,82,110,135,139,143,161,389'
@@ -85,24 +83,58 @@ class Tools(object):
         self.p=re.compile('^((25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}(25[0-5]|2[0-4]\d|[01]?\d\d?)$')
 
 
-    def _file(self,prefix="ports_"):
+    def _file(self,prefix=None,suffix=None):
         path_=os.path.abspath(os.path.dirname(__file__))+os.sep
-        name_=prefix+time.strftime('%Y%m%d%H%M%S',time.localtime(time.time()))+".txt"
+        if prefix:
+            name_=prefix+time.strftime('%Y%m%d%H%M%S',time.localtime(time.time()))+".txt"
+        if suffix:
+            name_ =time.strftime('%Y%m%d%H%M%S', time.localtime(time.time())) + suffix
         return path_+name_
 
-    def cidr(self,net):
-        _ip_list=[]
-        ips=IPy.IP(net)
-        for _ip in ips:
-            _ip_list.append(str(_ip))
-        ip_list=_ip_list[1:-1]
-        return ip_list
+    def stringxor(self,str1, str2):
+        orxstr = ""
+        for i in range(0, len(str1)):
+            rst = int(str1[i]) & int(str2[i])
+            orxstr = orxstr + str(rst)
+        return orxstr
+
+    def bin2dec(self,string_num):
+        return str(int(string_num, 2))
+
+    def getip(self,ip, type):
+        result = ''
+        for i in range(4):
+            item = self.bin2dec(ip[0:8])
+            if i == 3:
+                if type == 0:
+                    item = str(int(item) + 1)
+                else:
+                    item = str(int(item) - 1)
+            result = result + item + '.'
+            ip = ip[8:]
+        return result.strip('.')
+
+
+    def CIDR(self,input):
+        try:
+            ip = input.split('/')[0]
+            pos = int(input.split('/')[1])
+            ipstr = ''
+            for i in ip.split('.'):
+                ipstr = ipstr + bin(int(i)).replace('0b', '').zfill(8)
+            pstr = '1' * pos + '0' * (32 - pos)
+            res = self.stringxor(ipstr, pstr)
+            _ip = self.getip(res, 0), self.getip(res[0:pos] + '1' * (32 - pos), 1)
+            return _ip[0] + "-" + _ip[1]
+        except:
+            print 'cidr format error!!!'
+
 
     def par_ip(self,file_=None,ip=None):
         ips=[]
         if file_:
             ips= [x.strip() for x in file(file_,'rb')]
-        elif "/" in ip: ips.extend(self.cidr(ip))
+        elif "/" in ip: ips.extend(self.ipran(self.CIDR(ip)))
         elif '-' in ip: ips.extend(self.ipran(ip))
         elif self.p.match(ip): ips.append(ip)
         return set(ips)
@@ -182,55 +214,57 @@ class MyThread(threading.Thread):
 class Pyscan(object):
     def __init__(self):
         self.SHARE_Q=Queue()
-        self.info=Queue()
+        self.info=[]
         self.tool=Tools()
+        self.ports=[]
+
 
     def socket_port(self,ip,port):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
-            s=socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             result=s.connect_ex((str(ip),int(port)))
             if result==0:
                 return True
-            s.close()
         except:
             return False
+        finally:
+            s.close()
 
 
     def worker(self) :
-        while not self.SHARE_Q.empty():
+        while True:
             try:
-                _host,port = self.SHARE_Q.get()
+                _host = self.SHARE_Q.get(block=False)
+            except:
+                break
+            try:
                 host,ip= self.tool.host2ip(_host)
                 p=self.place
-                if self.socket_port(ip,port):
-                    self.info.put((ip,port))
-                    mutex.acquire()
-                    sys.stdout.write('{0}{1}{2}{3}open\n'.format(ip,p(25-len(ip)),port,p(10-len(port))))
-                    # sys.stdout.flush()
-                    mutex.release()
+                for port in self.ports:
+                    if self.socket_port(ip,port):
+                        self.info.append((ip,str(port)))
+                        mutex.acquire()
+                        sys.stdout.write('{0}{1}{2}\n'.format(ip,p(25-len(ip)),port))
+                        mutex.release()
             except Exception as e:
-                pass
-            # self.SHARE_Q.task_done()
+                print e
+
 
     def place(self,n=10):
         return " "*n
 
 
     def reports(self):
-        _info=[]
-        with open(self.tool._file(),"w") as f:
-            while not self.info.empty():
-                _info.append(self.info.get())
-            info=self.par_rep(_info)
+        with open(self.tool._file(prefix='ports_'),"w") as f:
+            info=self.par_rep(self.info)
             for ip,ports in info.iteritems():
                 place = " " * (30-len(ip))
                 f.write('{0}{1}{2}\n'.format(ip,place,','.join(ports)))
 
 
     def hydra(self):
-        with open(self.tool._file("hydra_"),"w") as f:
-            while not self.info.empty():
-                domin,port=self.info.get()
+        with open(self.tool._file(prefix="hydra_"),"w") as f:
+            for domin,port in self.info:
                 host,ip=Tools().host2ip(domin)
                 if port=="21":
                     f.write("ftp://%s:%d\n"%(ip,int(port)))
@@ -258,22 +292,16 @@ class Pyscan(object):
         return target
 
 
-    def par_queue(self,file=None,ip=None,ports=None):
-        targets=[]
-        for i in self.tool.par_ip(file,ip):
-            for p in self.tool.par_ports(ports):
-                targets.append((i,p))
-        return targets
-
     def monitor(self):
         while not self.SHARE_Q.empty():
             logging.info("current has {} tasks waiting...".format(self.SHARE_Q.qsize()))
-            time.sleep(10)
+            time.sleep(30)
 
 
-    def pyscan(self,file=None,ip=None,ports=None,hydra=False,ts=100):
+    def pyscan(self,file=None,ip=None,ports=None,hydra=False,ts=10):
         threads = []
-        for info in self.par_queue(file,ip,ports):
+        self.ports = self.tool.par_ports(ports)
+        for info in self.tool.par_ip(file,ip):
             self.SHARE_Q.put(info)
         logging.info("Total have {} tasks , now starting.....".format(self.SHARE_Q.qsize()))
         for i in xrange(ts):
@@ -283,32 +311,34 @@ class Pyscan(object):
         self.monitor()
         for thread in threads :
             thread.join()
-        # self.SHARE_Q.join()
         if hydra:
             self.hydra()
-            logging.info("Hydra scan result in {}".format(self.tool._file("hydra_")))
+            logging.info("Hydra scan result in {}".format(self.tool._file(prefix="hydra_")))
         self.reports()
-        logging.info("Fast scan result in {}".format(self.tool._file()))
+        logging.info("Fast scan result in {}".format(self.tool._file(prefix='ports_')))
 
 
 
 
 class Nmapscan(object):
     def __init__(self):
-        self.info=Queue()
+        self.info=[]
         self.SHARE_Q=Queue()
         self.tool=Tools()
 
 
     def worker(self):
-        while not self.SHARE_Q.empty():
+        while True:
             try:
-                _host,port = self.SHARE_Q.get()
+                _host, port = self.SHARE_Q.get(block=False)
+            except:
+                break
+            try:
                 host,ip=self.tool.host2ip(_host)
                 if ip:
                     scanner = nmap.PortScanner()
                     scanner.scan(ip,ports=port,arguments='-Pn -sT -sV --allports --version-trace')
-                    print scanner.all_hosts()
+                    # print scanner.command_line()
                     for host in scanner.all_hosts():
                         _tcp = scanner[host]['tcp']
                         if scanner[host].state() == 'up' and _tcp:
@@ -321,7 +351,7 @@ class Nmapscan(object):
                                     mutex.acquire()
                                     print host, "tcp_", str(port), name, product, version
                                     mutex.release()
-                                    self.info.put((host,"tcp",str(port),name,product,version))
+                                    self.info.append((host,"tcp",str(port),name,product,version))
             except Exception, e:
                 print e
 
@@ -335,9 +365,9 @@ class Nmapscan(object):
             time.sleep(30)
 
 
-    def nmap(self,file=None,ip=None,ports=None,ts=50):
+    def nmap(self,file=None,ip=None,ports=None,ts=10):
         threads = []
-        for info in self.par_queue(file,ip,ports):
+        for info in self.par_targets(file,ip,ports):
             self.SHARE_Q.put(info)
         logging.info("Total have {} tasks , now starting.....".format(self.SHARE_Q.qsize()))
         for i in xrange(ts):
@@ -347,43 +377,24 @@ class Nmapscan(object):
         self.monitor()
         for thread in threads :
             thread.join()
-        self.reports(self.info)
-        logging.info("NMAP scan result in {}".format(self.tool._file(".csv")))
+        self.reports()
+        logging.info("NMAP scan result in {}".format(self.tool._file(suffix=".csv")))
 
 
-    def reports(self,info):
-        with open(self.tool._file(".csv"), 'wb') as f:
+    def reports(self):
+        with open(self.tool._file(suffix=".csv"), 'wb') as f:
             writer = csv.writer(f)
             writer.writerow(['IP','protocal','port','name','product','version'])
-            while not self.info.empty():
-                writer.writerow(self.info.get())
+            for _info in self.info:
+                writer.writerow(_info)
 
 
-    def par_queue(self,file=None,ip=None,ports=None):
+    def par_targets(self,file=None,ip=None,ports=None):
         targets=[]
         tool=Tools()
         for i in tool.par_ip(file,ip):
-            if self.par_ports(ports):
-                for p in self.par_ports(ports):
-                    targets.append((i,p))
-            else:
-                targets.append((i,None))
+            targets.append((i, ports))
         return targets
-
-
-
-    def par_ports(self,ports=None):
-        _port=[]
-        if ports:
-            for x in ports.split(','):
-                if '-' in x:
-                    _locs = x.split('-')
-                    _ports = range(int(_locs[0]),int(_locs[1])+1)
-                    _port.extend(_ports)
-                else:
-                    _port.append(int(x))
-        return set([str(x) for x in _port])
-
 
 
 def cmdParser():
@@ -401,9 +412,10 @@ def cmdParser():
     return args
 
 
-
 if __name__ == "__main__":
     args=cmdParser()
+    if not (args.file or args.ips):
+        print sys.exit('-h for help')
     if args.mode == "pyscan":
         Pyscan().pyscan(file=args.file,ip=args.ips,ports=args.ports,hydra=args.hydra,ts=args.threads)
     if args.mode == "nmap":
