@@ -31,3 +31,8 @@ python scanports.py -i 192.168.55.155/24 <br>
 python scanports.py -i 192.168.55.155/24 -p 3306,1433,1521,5432,27017,6379<br>
 python scanports.py -i 192.168.55.155/24 -f ips.txt<br>
 python scanports.py -i 192.168.55.155/24 -p 80,8080 -m nmap <br>
+
+
+### 0x2 dirscan.py
+
+- 一个扫描指定的WEB二级目录是否存在的小工具,适用于对多个目标进行少量目录猜解。
