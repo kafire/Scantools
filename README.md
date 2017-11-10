@@ -24,7 +24,7 @@ python acunetix.py -d all <br>
 python acunetix.py -d urls.txt <br>
 
 ### 0x2 scanports.py
-- scanports.py 适用于发现批量目标风险端口开放情况，默认使用了socket连接扫描，自定了一部分风险端口，如果不指定端口，会扫描默认的风险端口，扫描速度极快。脚本还支持调用nmap批量扫描，可以输出更为详细的服务信息，但是效率相对较低。<br>
+- scanports.py 适用于发现批量目标风险端口开放情况，默认使用了socket连接扫描，自定了一部分风险端口，如果不指定端口，会扫描默认的风险端口，扫描速度极快。脚本还支持调用nmap批量扫描，可以输出更为详细的服务信息，适用于指定端口的扫描，全端口扫描效率相对较低。<br>
 
  - 基本用法 <br>
 python scanports.py -i 192.168.55.155/24 <br>
