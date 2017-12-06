@@ -1,6 +1,6 @@
 # scantools
 
-#### 0x1 acunetix.py
+### 0x1 acunetix.py
 - acunetix.py适用于一次性添加或删除大量AWVS扫描任务的情况，只支持avws11.
 
 - 修改配置 <br>
@@ -22,3 +22,17 @@ python acunetix.py -f urls.txt -m 2 <br>
 python acunetix.py -f urls.txt -m 1 -t 1000 <br>
 python acunetix.py -d all <br>
 python acunetix.py -d urls.txt <br>
+
+### 0x2 scanports.py
+- scanports.py 适用于发现批量目标风险端口开放情况，默认使用了socket连接扫描，自定了一部分风险端口，如果不指定端口，会扫描默认的风险端口，扫描速度极快。脚本还支持调用nmap批量扫描，可以输出更为详细的服务信息，适用于指定端口的扫描，全端口扫描效率相对较低。<br>
+
+ - 基本用法 <br>
+python scanports.py -i 192.168.55.155/24 <br>
+python scanports.py -i 192.168.55.155/24 -p 3306,1433,1521,5432,27017,6379<br>
+python scanports.py -i 192.168.55.155/24 -f ips.txt<br>
+python scanports.py -i 192.168.55.155/24 -p 80,8080 -m nmap <br>
+
+
+### 0x2 dirscan.py
+
+- 一个扫描指定的WEB二级目录是否存在的小工具,适用于对多个目标进行少量目录猜解。
