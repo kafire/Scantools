@@ -3,7 +3,6 @@
 import os
 import re
 import sys
-import time
 import socket
 import logging
 import requests
@@ -12,8 +11,6 @@ import threading
 from Queue import Queue
 from urlparse import urlparse
 
-
-mutex = threading.Lock()
 
 try:
     import requests.packages.urllib3
@@ -42,13 +39,12 @@ class MyThread(threading.Thread):
         self.func()
 
 
-class scanuri(object):
-    def __init__(self,status,tag):
-        self.count=0
+class Scanuri(object):
+    def __init__(self,status,keyword):
         self.targets=[]
         self.path=[]
         self.reports=[]
-        self.tag=tag
+        self.keyword=keyword
         self.type="GET"
         self.SHARE_Q=Queue()
         self.status=status.split(',') if ',' in status else status
@@ -66,7 +62,7 @@ class scanuri(object):
         if _url:
             urls.append(_url)
         elif _file:
-            for i in [x.split() for x in file(_file)][0]:
+            for i in [x.strip() for x in file(_file,'r')]:
                 urls.append(i)
         return urls
 
@@ -117,8 +113,8 @@ class scanuri(object):
 
     def report(self):
         with open(self._path+'result.txt', 'wb') as f:
-            for url,status,tag in set(self.reports):
-                f.write(url+self.place()+str(status)+self.place()+self.tag + '\n')
+            for url,status,tag in self.reports:
+                f.write(url+self.place()+str(status)+self.place()+self.keyword + '\n')
         return len(file('result.txt').readlines())
 
 
@@ -129,24 +125,27 @@ class scanuri(object):
             for url_ in self.get_burls(url):
                 if skip:break
                 for path_ in self.path:
-                    self.count +=1
                     url=url_.strip('/')+'/'+ path_
                     resp,status=self.request(url,self.type)
                     if status == -1:
                         skip= True
                         break
                     report=False
-                    if self.tag and self.tag in resp.content:
+                    if self.status and self.keyword:
+                        if str(status) in self.status:
+                            if self.keyword and self.keyword in resp.content:
+                                print url, self.keyword
+                                report=True
+                    else:
                         if str(status) in self.status:
                             if not self.identify_waf(resp):
-                                print url,self.tag
+                                print url,status
                                 report=True
-                    elif str(status) in self.status:
-                        if not self.identify_waf(resp):
-                            print url,status
+                        if self.keyword and self.keyword in resp.content:
+                            print url,self.keyword
                             report=True
                     if report:
-                        self.reports.append((url,status,self.tag))
+                        self.reports.append((url,status,self.keyword))
                         skip= True
                         break
 
@@ -162,7 +161,7 @@ class scanuri(object):
                 resp=s.post(url,timeout=10, verify=False, headers=self.header,allow_redirects=False)
                 status=resp.status_code
             if re.search('<body onload="t3_ar_guard\(\);">', resp.content):
-                print 't3_ar_guard'
+                print 't3_ar_guard',url
                 match = re.search(
                     '\'document\|href\|location\|cookie\|([0-9a-zA-Z_]*?)\|path\|([0-9]*?)\|([0-9]*?)\'', resp.content)
                 if match:
@@ -182,34 +181,30 @@ class scanuri(object):
         return resp,status
 
 
-    def monitor(self):
-        while not self.SHARE_Q.empty():
-            logging.info("current has {} tasks waiting...".format(self.SHARE_Q.qsize()))
-            time.sleep(30)
 
     def urlscan(self,_threads=10):
+        logging.info("Now start checking !!!" )
         threads=[]
         for i in xrange(_threads):
             thread = MyThread(self.worker)
             thread.start()
             threads.append(thread)
-        self.monitor()
         for thread in threads:
             thread.join()
         records=self.report()
-        logging.info("Total scan %s tasks,find %s records !!!"% (self.count,records))
+        logging.info("Total find %s records !!!"% records)
 
 
 def cmdParser():
     parser = argparse.ArgumentParser(usage='python %s ' % __file__)
-    parser.add_argument('-m','--method',metavar="",dest='method', default='GET', help='GET|POST,default GET')
+    parser.add_argument('-m','--method',metavar="",dest='method', default='GET', help='GET|POST')
     parser.add_argument('-s','--status',metavar="",dest='status', default=None, required=True, help='status code')
-    parser.add_argument('-k','--keyword',metavar="",dest='tags', default='', help='keyword in content')
-    parser.add_argument('-u','--uri',metavar="",dest='uri', default=None, help='path')
+    parser.add_argument('-k','--keyword',metavar="",dest='keyword', default='', help='keyword in content')
+    parser.add_argument('-p','--path',metavar="",dest='path', default=None, help='path')
     parser.add_argument('-t','--target',metavar="",dest='target', default=None, help='target')
     parser.add_argument('-f','--file',metavar="",dest='file', default=None, help='filename for targets')
     parser.add_argument('-d','--dict',metavar="",dest='dict', default=None, help='filename for paths')
-    parser.add_argument('-n','--threads',metavar="",dest='threads', default=10, type=int, help='threads numbers')
+    parser.add_argument('-n','--threads',metavar="",dest='threads', default=10, type=int, help='threads numbers,default 10 !')
 
     if len(sys.argv) == 1:
         sys.argv.append('-h')
@@ -222,10 +217,9 @@ if __name__ == '__main__':
     args=cmdParser()
     if not (args.file or args.target):
         print sys.exit('Typing -h for help')
-    if not (args.uri or args.dict):
+    if not (args.path or args.dict):
         print sys.exit('Typing -h for help')
-    scanuri = scanuri(args.status, args.tags)
-    targets=scanuri.get_targets(args.file,args.target)
-    paths=scanuri.get_path(args.dict, args.uri)
-    logging.info("Total %s targets, %s path to scan !!!" % (targets, paths))
+    scanuri = Scanuri(args.status, args.keyword)
+    scanuri.get_targets(args.file,args.target)
+    scanuri.get_path(args.dict, args.path)
     scanuri.urlscan(args.threads)
