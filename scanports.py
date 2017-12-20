@@ -29,47 +29,58 @@ sys.setdefaultencoding('utf-8')
 socket.setdefaulttimeout(3)
 
 
-DEFAULT_PORTS= '21,22,23,25,53,67,68,69,80,81,82,110,135,139,143,161,389'
+DEFAULT_PORTS= '21,22,23,25,53,67,68,69,80-89'
+DEFAULT_PORTS += ',110,135,139,143,161'
+DEFAULT_PORTS += ',389'
+DEFAULT_PORTS += ',443,465'
 DEFAULT_PORTS += ',512,513,514'     #linux 直接使用rlogin
-DEFAULT_PORTS += ',443,465,993,995' # ssl services port(https tcp-443\imaps tcp-993\pop3s tcp-995\smtps tcp-465)
-DEFAULT_PORTS += ',873'         # rsync default port
+DEFAULT_PORTS += ',873'         # rsync default port  
+DEFAULT_PORTS += ',993,995' # ssl services port(https tcp-443\imaps tcp-993\pop3s tcp-995\smtps tcp-465)
 DEFAULT_PORTS += ',1080'       #socket 爆破：进行内网渗透
 DEFAULT_PORTS += ',1352'       #lotus  爆破：弱口令  信息泄漏：源代码
-DEFAULT_PORTS += ',1433,1521,1526,3306,3389,4899,8580'
+DEFAULT_PORTS += ',1433'
+DEFAULT_PORTS += ',1521,1526' 
 DEFAULT_PORTS += ',2049'         #NFS linux网络共享服务
 DEFAULT_PORTS += ',2181'        #zookeeper  未授权访问
 DEFAULT_PORTS += ',2082,2083'   # cpanel主机管理系统登陆 （国外用较多）​
 DEFAULT_PORTS += ',2222'        # DA虚拟主机管理系统登陆 （国外用较多）​
 DEFAULT_PORTS += ',2601,2604'   # zebra路由，默认密码zebra
 DEFAULT_PORTS += ',3128'        # squid代理默认端口，如果没设置口令很可能就直接漫游内网了
-DEFAULT_PORTS += ',3312,3311'   # kangle主机管理系统登陆
+DEFAULT_PORTS += ',3312,3311,3306'   # kangle主机管理系统登陆
+DEFAULT_PORTS += ',3389' 
 DEFAULT_PORTS += ',4440'        # rundeck  参考WooYun: 借用新浪某服务成功漫游新浪内网
-DEFAULT_PORTS += ',4848'        #glassfish 爆破：控制台弱口令 认证绕过
+DEFAULT_PORTS += ',4848'        #glassfish 爆破：控制台弱口令 认证绕过,GlassFish 任意文件读取
+DEFAULT_PORTS += ',4899' 
 DEFAULT_PORTS += ',5000'        #sybase/DB2爆破、注入
 DEFAULT_PORTS += ',5432,5631'   #postgresql 缓冲区溢出、注入攻击、爆破：弱口令 / pcanywhere、拒绝服务、代码执行
 DEFAULT_PORTS += ',5900'        #vnc、爆破：弱口令、认证绕过
+DEFAULT_PORTS += ',5984'        #CouchDB http://xxx:5984/_utils/
 DEFAULT_PORTS += ',6082'        # varnish  参考WooYun: Varnish HTTP accelerator CLI 未授权访问易导致网站被直接篡改或者作为代理进入内网
 DEFAULT_PORTS += ',6379'        # redis 一般无认证，可直接访问
-DEFAULT_PORTS += ',7001'        # weblogic，默认弱口令
+DEFAULT_PORTS += ',7001,7002'        # weblogic，默认弱口令
 DEFAULT_PORTS += ',7778'        # Kloxo主机控制面板登录​
-DEFAULT_PORTS += ',8000'        # 8000-9090都是一些常见的web端口，有些运维喜欢把管理后台开在这些非80的端口上
+DEFAULT_PORTS += ',8000-9090'        # 8000-9090都是一些常见的web端口，有些运维喜欢把管理后台开在这些非80的端口上
 DEFAULT_PORTS += ',8001'
 DEFAULT_PORTS += ',8002'
-DEFAULT_PORTS += ',8161'        #ActiveMQ  admin:admin
 DEFAULT_PORTS += ',8069'        #zabbix  远程命令执行
 DEFAULT_PORTS += ',8080'        # tomcat/WDCP主机管理系统 默认端口
-DEFAULT_PORTS += ',8081'
+DEFAULT_PORTS += ',8081,8580'
 DEFAULT_PORTS += ',8888'        # amh/LuManager 主机管理系统默认端口
 DEFAULT_PORTS += ',8083'        # Vestacp主机管理系统​​ （国外用较多）
 DEFAULT_PORTS += ',8089'        # jboss端口 历史曾经爆漏洞/可弱口令
+DEFAULT_PORTS += ',8161'        #ActiveMQ  admin:admin
+DEFAULT_PORTS += ',8649'        #ganglia
+DEFAULT_PORTS += ',9000'        # PHP-FPM Fastcgi 未授权访问漏洞
 DEFAULT_PORTS += ',9090'        # websphere控制台、爆破：控制台弱口令、Java反序列
-DEFAULT_PORTS += ',9200,9300'   # elasticsearch port
+DEFAULT_PORTS += ',9200,9300'   # elasticsearch port ，命令执行
 DEFAULT_PORTS += ',10000'       # Virtualmin/Webmin 服务器虚拟主机管理系统
 DEFAULT_PORTS += ',11211'       # memcache  未授权访问
 DEFAULT_PORTS += ',14147'
-DEFAULT_PORTS += ',28017,27017' # mongodb default port
+DEFAULT_PORTS += ',27018'
+DEFAULT_PORTS += ',28017,27017'  # mongodb default port
 DEFAULT_PORTS += ',43958'
-
+DEFAULT_PORTS += ',50000'        #SAP命令执行
+DEFAULT_PORTS += ',50070,50030'  #hadoop默认端口未授权访问
 
 
 logging.basicConfig(
@@ -185,7 +196,13 @@ class Tools(object):
                 else:
                     _port.append(int(x))
         else:
-            _port=DEFAULT_PORTS.split(',')
+            for _ in DEFAULT_PORTS.split(','):
+                if '-' in _:
+                    _locs = _.split('-')
+                    _ports = range(int(_locs[0]),int(_locs[1])+1)
+                    _port.extend(_ports)
+                else:
+                    _port.append(int(_))
         return set(_port)
 
 
@@ -362,7 +379,7 @@ class Nmapscan(object):
     def monitor(self):
         while not self.SHARE_Q.empty():
             logging.info("current has {} tasks waiting...".format(threading.activeCount() - 1))
-            time.sleep(30)
+            time.sleep(120)
 
 
     def nmap(self,file=None,ip=None,ports=None,ts=10):
@@ -399,11 +416,11 @@ class Nmapscan(object):
 
 def cmdParser():
     parser = argparse.ArgumentParser(usage='python %s -i "192.168.1.0/24" -m nmap'%__file__)
-    parser.add_argument('-f','--file',metavar="",help='ips filename')
-    parser.add_argument('-i','--ips',metavar="",help='support CIDR | RANGE |SINGLE ips')
-    parser.add_argument('-p','--ports',metavar="",help='support RANGE | SINGLE ports')
-    parser.add_argument('-c','--hydra',action="store_true",default=False,help='Hydra')
-    parser.add_argument('-t','--threads',metavar="",default=100,type=int,help='THREADS')
+    parser.add_argument('-f','--file',metavar="",help='Ips filename')
+    parser.add_argument('-i','--ips',metavar="",help='Support cidr | range |singe ips')
+    parser.add_argument('-p','--ports',metavar="",help='Support range | single ports')
+    parser.add_argument('-c','--hydra',action="store_true",default=False,help='Format For Hydra')
+    parser.add_argument('-t','--threads',metavar="",default=20,type=int,help='Threads numbers,default 20')
     parser.add_argument('-m','--mode',metavar="",default="pyscan",help='Type [pyscan | nmap | masscan]')
 
     if len(sys.argv) == 1:
@@ -420,5 +437,4 @@ if __name__ == "__main__":
         Pyscan().pyscan(file=args.file,ip=args.ips,ports=args.ports,hydra=args.hydra,ts=args.threads)
     if args.mode == "nmap":
         Nmapscan().nmap(file=args.file,ip=args.ips,ports=args.ports,ts=args.threads)
-
 
