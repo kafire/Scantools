@@ -13,6 +13,7 @@ import requests
 from Queue import Queue
 import requests.packages.urllib3
 from urlparse import urlparse
+from argparse import RawTextHelpFormatter
 
 # SSL error ignored
 if hasattr(ssl, '_create_unverified_context'):
@@ -59,7 +60,8 @@ class Awvs(object):
                 response = requests.get(_url,headers=self.header,timeout=30,verify=False)
                 return response.ok,json.loads(response.content)
             except Exception as e:
-                print(str(e))
+                print e
+                # print "connect  failed ,please check AVWS URL and api api-key !"
                 return
 
 
@@ -84,13 +86,15 @@ class Awvs(object):
             else:
                 par_err.append(url)
             ok_,req_= self.request(_url=self.targets,data=data_)
-            # if ok_:
-            id = req_.get('target_id','')
-            data = {"target_id":id,"profile_id":"11111111-1111-1111-1111-11111111111%s"% mode,
-                     "schedule": {"disable": False,"start_date":None,"time_sensitive": False}}
-            ok,req= self.request(_url=self.scans,data=data)
-            if ok:
-                print "[ INFO ] Success add target: %s"%  url.strip('\n')
+            if ok_:
+                id = req_.get('target_id','')
+                data = {"target_id":id,"profile_id":"11111111-1111-1111-1111-11111111111%s"% mode,
+                         "schedule": {"disable": False,"start_date":None,"time_sensitive": False}}
+                ok,req= self.request(_url=self.scans,data=data)
+                if ok:
+                    print "[ INFO ] Success add target: %s"%  url.strip('\n')
+            else:
+                print '[ ERROR ] Add tasks url faild,please fomart url'
             self.is_err()
         except BaseException as e:
             print "[ ERROR ] Add task url error:\n%s"% e
@@ -147,7 +151,7 @@ class Awvs(object):
                     if ok:
                         print "[ INFO ] Success add target: %s"%  url
                 else:
-                    print "[ ERROR ] Fail to contected awvs,license expiration "
+                    print "[ ERROR ] Add tasks url faild,please fomart targets file"
             self.is_err()
         except BaseException as e:
             print "[ ERROR ] Add tasks file error:\n%s"% e
@@ -204,21 +208,20 @@ class Awvs(object):
 
 
 def cmdLineParser():
-    parser = argparse.ArgumentParser(usage='python %s -f "week32" -m 2'%__file__)
-    parser.add_argument('-f','--file',metavar="",help='Urls filename')
-    parser.add_argument('-d','--delete',metavar="",default=None,help='"-d all" Delete all')
-    parser.add_argument('-u','--url',metavar="",type=str,help='Like "http://www.hn12122.com"')
-    parser.add_argument('-t','--timeout',metavar="",type=int,help='Stop timeout seconds tasks ')
+    parser = argparse.ArgumentParser(usage='python %s -f "urls.txt" -m 2'%__file__,formatter_class=RawTextHelpFormatter)
+    parser.add_argument('-f','--file',metavar="",help='Load HTTP urls from a file')
+    parser.add_argument('-d','--delete',metavar="",default=None,help='Delete tasks (e.g. "-d all" or "-d urls.txt")')
+    parser.add_argument('-u','--url',metavar="",type=str,help='Target URL (e.g. "http://www.site.com/vuln.php?id=1")')
+    parser.add_argument('-t','--timeout',metavar="",type=int,help='Stop timeout tasks (default Seconds)')
     parser.add_argument('-m','--mode',metavar="",default=1,type=int,
-                        help='mode=2    High Risk Vulnerabilities | '
-                             'mode=5    Weak Passwords | '
-                             'mode=7    Crawl Only | '
-                             'mode=6    Cross-site Scripting Vulnerabilities | '
-                             'mode=3    SQL Injection Vulnerabilities | '
-                             'mode=8    quick_profile_2 0   {"wvs": {"profile": "continuous_quick"}} | '
-                             'mode=4    quick_profile_1 0   {"wvs": {"profile": "continuous_full"}} | '
-                             'mode=1    Full Scan   1   {"wvs": {"profile": "Default"}}')
-
+                        help='mode=1 (Full Scan (Default))\n'
+                             'mode=2 (High Risk Vulnerabilities)\n'
+                             'mode=3 (SQL Injection Vulnerabilities)\n'
+                             'mode=7 (Crawl Only)\n'
+                             'mode=6 (Cross-site Scripting Vulnerabilities)\n'
+                             'mode=5 (Weak Passwords)\n'
+                             'mode=8 (quick_profile continuous_quick)\n'
+                             'mode=4 (quick_profile continuous_full)')
     if len(sys.argv) == 1:
         sys.argv.append('-h')
     args = parser.parse_args()
